@@ -8,6 +8,7 @@ CCSD::CCSD( int num_electron, int dimension,
     
     this->num_electron = num_electron;
     this->dimension = dimension * 2;
+
     this->nuclear_repulsion_energy = nuclear_repulsion_energy;
     this->scf_energy = scf_energy;
     this->orbital_energy = orbital_energy;
@@ -15,55 +16,33 @@ CCSD::CCSD( int num_electron, int dimension,
 
     // printf("constructing CCSD object\n");
 
-    double tmp[dimension];
-    for (int i = 0; i < dimension; i++) {
-        tmp[i] = orbital_energy[i >> 1];
-    }
 
     // 2d array
-    int dimensions = dimension * dimension;
+    size_t arr_size = dimension * dimension * 4;
+    this->fs = new double[arr_size];
+    this->single_excitation = new double[arr_size];            // T1
+    this->denominator_ai = new double[arr_size];               // Dai
+    memset(fs, 0, arr_size * sizeof(double));
+    memset(single_excitation, 0, arr_size * sizeof(double));
+    memset(denominator_ai, 0, arr_size * sizeof(double));
 
-    this->fs = new double[dimension];
-    for (int i = 0; i < dimension; i++) {
-        this->fs[index(i, i)] = tmp[i];
-    }
-
-    // printf("initializing T1 and denominator\n");
-    this->single_excitation = new double[dimensions];            // T1
-    this->denominator_ai = new double[dimensions];               // Dai
-    
-    // diagonalize the orbital energy
+    printf("fs\t");
+    init_fs();
+    test_arr_output(fs, arr_size);
 
     // 4d array
-    // printf("initializing T2 and denominator\n");
-
-    dimensions *= dimensions;
-    this->double_excitation = new double[dimensions];            // T2
-    this->denominator_abij = new double[dimensions];             // Dabij
+    arr_size *= arr_size;
+    this->double_excitation = new double[arr_size];            // T2
+    this->denominator_abij = new double[arr_size];             // Dabij
+    memset(this->double_excitation, 0, arr_size * sizeof(double));
+    memset(this->single_excitation, 0, arr_size * sizeof(double));
 
     //spin basis double bar integral
-    this->spin_ints = new double[dimensions];
+    this->spin_ints = new double[arr_size];
+    memset(spin_ints, 0, arr_size * sizeof(double));
+    init_spin_ints();
 
-    for (int i = 2; i < dimension; i++) {
-        for (int j = 2; j < dimension; j++) {
-            for (int k = 2; k < dimension; k++) {
-                for (int l = 2; l < dimension; l++) {
-                    int p = i >> 1;
-                    int q = j >> 1;
-                    int r = k >> 1;
-                    int s = l >> 1;
-                    
-                    double value1 = teimo(p, r, q, s);
-                    value1 *= (i % 2 == k % 2) * (j % 2 == l % 2);
-                    
-                    double value2 = teimo(p, s, q, r);
-                    value2 *= (i % 2 == s % 2) * (j % 2 == r % 2);
-                    
-                    spin_ints[index(i - 2, j - 2, k - 2, l - 2)] = value1 - value2;
-                }
-            }
-        }
-    }
+    test_arr_output(spin_ints, arr_size);
 }
 
 CCSD::~CCSD() {
@@ -80,9 +59,9 @@ double CCSD::run() {
     double ECCSD = 0.0;    // CCSD energy
     double DECC = 0.0;     // CCSD energy difference
 
-    int dimensions = this->dimension;
+    // int dimensions = this->dimension;
     
-    dimensions *= dimensions;
+    int dimensions = dimension * dimension * 4;
     double fae[dimensions];
     double fmi[dimensions];
     double fme[dimensions];
@@ -400,4 +379,41 @@ double CCSD::update_energy() {
     }
 
     return energy;
+}
+
+inline void CCSD::init_fs() {
+    int dimensions = dimension * 2; 
+    double tmp[dimensions];
+
+    for (int i = 0; i < dimensions; i++) {
+        tmp[i] = orbital_energy[i >> 1];
+    }
+
+    // diagonalizing the orbital tmp array
+    for (int i = 0; i < dimensions; i++) {
+        fs[index(i, i)] = tmp[i];
+    }
+}
+
+inline void CCSD::init_spin_ints() {
+    for (int i = 2; i < dimension + 2; i++) {
+        for (int j = 2; j < dimension + 2; j++) {
+            for (int k = 2; k < dimension + 2; k++) {
+                for (int l = 2; l < dimension + 2; l++) {
+                    int p = i >> 1;
+                    int q = j >> 1;
+                    int r = k >> 1;
+                    int s = l >> 1;
+                    
+                    double value1 = teimo(p, r, q, s);
+                    value1 *= (i % 2 == k % 2) * (j % 2 == l % 2);
+                    
+                    double value2 = teimo(p, s, q, r);
+                    value2 *= (i % 2 == s % 2) * (j % 2 == r % 2);
+                    
+                    spin_ints[index(i - 2, j - 2, k - 2, l - 2)] = value1 - value2;
+                }
+            }
+        }
+    }
 }

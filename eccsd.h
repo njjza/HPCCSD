@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <map>
 #include <string.h>
+#include <stdio.h>
 
 class CCSD {
 private:
@@ -44,6 +45,8 @@ private:
         return i * dimension + j;
     }
 
+    inline void init_fs();
+    inline void init_spin_ints();
     // def teimo(a,b,c,d):
     // eint = lambda x, y: x*(x+1)/2 + y if x>y else y*(y+1)/2 + x # compound index given two indices
     // return ttmo.get(eint(eint(a,b),eint(c,d)),0.0e0)
@@ -59,6 +62,12 @@ private:
             ) ? two_electron_integral[eint(eint(a,b),eint(c,d))] : 0.0;
     }
 
+    void test_arr_output(double *arr, int size) {
+        for (int i = 0; i < size; i++) {
+            printf("%f, ", arr[i]);
+        }
+        printf("\n");
+    }
 
 public:
     // public methods
