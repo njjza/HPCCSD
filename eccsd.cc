@@ -1,9 +1,10 @@
 #include "eccsd.h"
+#include <stdio.h>
 
 CCSD::CCSD( int num_electron, int dimension, 
             const int nuclear_repulsion_energy, int scf_energy, 
             double *orbital_energy, 
-            std::map<double, double> two_electron_integral) {
+            const std::map<double, double> two_electron_integral) {
     
     this->num_electron = num_electron;
     this->dimension = dimension * 2;
@@ -11,6 +12,8 @@ CCSD::CCSD( int num_electron, int dimension,
     this->scf_energy = scf_energy;
     this->orbital_energy = orbital_energy;
     this->two_electron_integral = two_electron_integral;
+
+    // printf("constructing CCSD object\n");
 
     double tmp[dimension];
     for (int i = 0; i < dimension; i++) {
@@ -25,13 +28,15 @@ CCSD::CCSD( int num_electron, int dimension,
         this->fs[index(i, i)] = tmp[i];
     }
 
+    // printf("initializing T1 and denominator\n");
     this->single_excitation = new double[dimensions];            // T1
     this->denominator_ai = new double[dimensions];               // Dai
     
     // diagonalize the orbital energy
-    
 
     // 4d array
+    // printf("initializing T2 and denominator\n");
+
     dimensions *= dimensions;
     this->double_excitation = new double[dimensions];            // T2
     this->denominator_abij = new double[dimensions];             // Dabij
@@ -39,44 +44,57 @@ CCSD::CCSD( int num_electron, int dimension,
     //spin basis double bar integral
     this->spin_ints = new double[dimensions];
 
-    for (int i = 0; i < dimension; i++) {
-        for (int j = 0; j < dimension; j++) {
-            for (int k = 0; k < dimension; k++) {
-                for (int l = 0; l < dimension; l++) {
+    for (int i = 2; i < dimension; i++) {
+        for (int j = 2; j < dimension; j++) {
+            for (int k = 2; k < dimension; k++) {
+                for (int l = 2; l < dimension; l++) {
                     int p = i >> 1;
                     int q = j >> 1;
                     int r = k >> 1;
                     int s = l >> 1;
-                    double value1 = two_electron_integral[index(p, r, q, s)] * (i % 2 == k % 2) * (j % 2 == l % 2);
-                    double value2 = two_electron_integral[index(p, s, q, r)] * (i % 2 == s % 2) * (j % 2 == r % 2);
-                    spin_ints[index(i, j, k, l)] = value1 - value2;
+                    
+                    double value1 = teimo(p, r, q, s);
+                    value1 *= (i % 2 == k % 2) * (j % 2 == l % 2);
+                    
+                    double value2 = teimo(p, s, q, r);
+                    value2 *= (i % 2 == s % 2) * (j % 2 == r % 2);
+                    
+                    spin_ints[index(i - 2, j - 2, k - 2, l - 2)] = value1 - value2;
                 }
             }
         }
     }
 }
 
+CCSD::~CCSD() {
+    delete[] this->single_excitation;
+    delete[] this->double_excitation;
+    delete[] this->denominator_ai;
+    delete[] this->denominator_abij;
+    delete[] this->spin_ints;
+    delete[] this->fs;
+}
+
 double CCSD::run() {
     // run the CCSD
     double ECCSD = 0.0;    // CCSD energy
     double DECC = 0.0;     // CCSD energy difference
-    double OLDCC = 0.0;    // old CCSD energy
 
     int dimensions = this->dimension;
     
     dimensions *= dimensions;
-    double *fae = new double[dimensions];
-    double *fmi = new double[dimensions];
-    double *fme = new double[dimensions];
+    double fae[dimensions];
+    double fmi[dimensions];
+    double fme[dimensions];
     
     dimensions *= dimensions;
     
-    double *wmnij = new double[dimensions];
-    double *wabef = new double[dimensions];
-    double *wmbej = new double[dimensions];
+    double wmnij[dimensions];
+    double wabef[dimensions];
+    double wmbej[dimensions];
 
     while(DECC > 1.0e-6) {
-        double OLDCC = ECCSD;
+        double OLDCC = ECCSD;   // CC energy of previous iteration
 
         // update the intermediate
         this->update_intermediate(fae, fmi, fme, wmnij, wabef, wmbej);
@@ -185,27 +203,40 @@ void CCSD::update_intermediate
         }
     }
 
-    // Wabef = np.zeros((dim,dim,dim,dim))
-    // Wmbej = np.zeros((dim,dim,dim,dim))
-    // gen_iter.append(range(Nelec,dim))
-    // for a, b, e, f in product(*gen_iter):
-    //     m, j = a-Nelec, f-Nelec
-    //     Wabef[a,b,e,f] = spinints[a,b,e,f]
-    //     Wmbej[m,b,e,j] = spinints[m,b,e,j]
-    //     for i in range(Nelec):
-    //         Wabef[a,b,e,f] += -ts[b,i]*spinints[a,i,e,f] + ts[a,i]*spinints[b,i,e,f]
-    //         Wmbej[m,b,e,j] += ts[i+Nelec,j]*spinints[m,b,e,i+Nelec]
-    //         Wmbej[m,b,e,j] += -ts[b,i]*spinints[m,i,e,j]
-    //         for n in range(Nelec):
-    //             Wabef[a,b,e,f] += 0.25*tau(a,b,i,n)*spinints[i,n,e,f]
-    //             Wmbej[m,b,e,j] -= (0.5*td[n+Nelec,b,j,i] + ts[n+Nelec,j]*ts[b,i])*spinints[m,i,e,n+Nelec]
-    double *wabef = new double[this->dimension * this->dimension * this->dimension * this->dimension];
+    memset(wabef, 0, dimension * dimension * dimension * dimension);
+    memset(wmbej, 0, dimension * dimension * dimension * dimension);
 
-    return;
+    for(int a = n_elec; a < dimension; a++) {
+        for(int b = n_elec; b < dimension; b++) {
+            for(int e = n_elec; e < dimension; e++) {
+                for(int f = n_elec; f < dimension; f++) {
+                    int tmp = a - n_elec;
+                    int tmp4 = f - n_elec;
+
+                    wabef[index(a, b, e, f)] = spin_ints[index(a, b, e, f)];
+                    wmbej[index(tmp, b, e, tmp4)] = spin_ints[index(tmp, b, e, tmp4)];
+
+                    for(int i = 0; i < n_elec; i++) {
+                        wabef[index(a, b, e, f)] += -ts[index(b, i)] * spin_ints[index(a, i, e, f)] + \
+                            ts[index(a, i)] * spin_ints[index(b, i, e, f)];
+                        wmbej[index(tmp, b, e, tmp4)] += ts[index(i + n_elec, tmp4)] * spin_ints[index(tmp, b, e, i + n_elec)];
+                        wmbej[index(tmp, b, e, tmp4)] += -ts[index(b, i)] * spin_ints[index(tmp, i, e, tmp4)];
+
+                        for(int n = 0; n < n_elec; n++) {
+                            wabef[index(a, b, e, f)] += 0.25 * tau(a, b, i, n) * spin_ints[index(i, n, e, f)];
+                            wmbej[index(tmp, b, e, tmp4)] -= (0.5 * td[index(n + n_elec, b, tmp4, i)] + \
+                            ts[index(n + n_elec, tmp4)] * ts[index(b, i)]) * spin_ints[index(tmp, i, e, n + n_elec)];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 void CCSD::makeT1
-(double *fme, double *fmi, double *fae) {
+(const double *fme, const double *fmi, const double *fae) {
     int dim = this->dimension;
     int Nelec = this->num_electron;
     double *ts = this->single_excitation;
@@ -256,8 +287,8 @@ void CCSD::makeT1
 }
 
 void CCSD::makeT2
-(   double *fae, double *fmi, double *fme, double *wabef, double *wmnij, 
-    double *wmbej
+(   const double *fae, const double *fmi, const double *fme, 
+    const double *wabef, const double *wmnij, const double *wmbej
 ) {
     // make T2
     int dim = this->dimension;

@@ -31,9 +31,9 @@ private:
         double *wabef, double *wmbej
     );
     double update_energy();
-    void makeT1(double *fme, double *fmi, double *fae);
-    void makeT2(double *fae, double *fmi, double *fme, 
-                double *wabef, double *wmnij, double *wmbej);
+    void makeT1(const double *fme, const double *fmi, const double *fae);
+    void makeT2(const double *fae, const double *fmi, const double *fme, 
+                const double *wabef, const double *wmnij, const double *wmbej);
 
     inline int index(int i, int j, int k, int l) {
         return i * dimension * dimension * dimension + \
@@ -43,6 +43,22 @@ private:
     inline int index(int i, int j) {
         return i * dimension + j;
     }
+
+    // def teimo(a,b,c,d):
+    // eint = lambda x, y: x*(x+1)/2 + y if x>y else y*(y+1)/2 + x # compound index given two indices
+    // return ttmo.get(eint(eint(a,b),eint(c,d)),0.0e0)
+
+    double teimo(int a, int b, int c, int d) {
+        auto eint = [](int x, int y) -> int {
+            return x > y ? x*(x+1)/2 + y : y*(y+1)/2 + x; // compound index given two indices
+        };
+
+        return (
+                two_electron_integral.find(eint(eint(a,b),eint(c,d))) != \
+                two_electron_integral.end()
+            ) ? two_electron_integral[eint(eint(a,b),eint(c,d))] : 0.0;
+    }
+
 
 public:
     // public methods
