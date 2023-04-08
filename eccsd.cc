@@ -26,9 +26,7 @@ CCSD::CCSD( int num_electron, int dimension,
     memset(single_excitation, 0, arr_size * sizeof(double));
     memset(denominator_ai, 0, arr_size * sizeof(double));
 
-    printf("fs\t");
     init_fs();
-    test_arr_output(fs, arr_size);
 
     // 4d array
     arr_size *= arr_size;
@@ -41,8 +39,6 @@ CCSD::CCSD( int num_electron, int dimension,
     this->spin_ints = new double[arr_size];
     memset(spin_ints, 0, arr_size * sizeof(double));
     init_spin_ints();
-
-    test_arr_output(spin_ints, arr_size);
 }
 
 CCSD::~CCSD() {
@@ -409,7 +405,7 @@ inline void CCSD::init_spin_ints() {
                     value1 *= (i % 2 == k % 2) * (j % 2 == l % 2);
                     
                     double value2 = teimo(p, s, q, r);
-                    value2 *= (i % 2 == s % 2) * (j % 2 == r % 2);
+                    value2 *= (i % 2 == l % 2) * (j % 2 == k % 2);
                     
                     spin_ints[index(i - 2, j - 2, k - 2, l - 2)] = value1 - value2;
                 }

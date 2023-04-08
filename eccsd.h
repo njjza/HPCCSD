@@ -47,26 +47,30 @@ private:
 
     inline void init_fs();
     inline void init_spin_ints();
-    // def teimo(a,b,c,d):
-    // eint = lambda x, y: x*(x+1)/2 + y if x>y else y*(y+1)/2 + x # compound index given two indices
-    // return ttmo.get(eint(eint(a,b),eint(c,d)),0.0e0)
 
     double teimo(int a, int b, int c, int d) {
-        auto eint = [](int x, int y) -> int {
-            return x > y ? x*(x+1)/2 + y : y*(y+1)/2 + x; // compound index given two indices
+        // compound index given two indices
+        auto eint = [](double x, double y) -> double {
+            return x > y ? (x * (x + 1.0)) / 2.0 + y : (y * (y + 1.0)) / 2.0 + x; 
         };
 
-        return (
-                two_electron_integral.find(eint(eint(a,b),eint(c,d))) != \
-                two_electron_integral.end()
-            ) ? two_electron_integral[eint(eint(a,b),eint(c,d))] : 0.0;
+        double result = eint(
+            eint((double)a, (double)b), eint((double)c,(double)d)
+        );
+        
+        if (two_electron_integral.find(result) != two_electron_integral.end()) {
+            return two_electron_integral[result];
+        } else {
+            return 0.0;
+        }
     }
 
     void test_arr_output(double *arr, int size) {
+        printf("{");
         for (int i = 0; i < size; i++) {
             printf("%f, ", arr[i]);
         }
-        printf("\n");
+        printf("}\n");
     }
 
 public:
