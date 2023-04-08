@@ -47,7 +47,8 @@ private:
 
     inline void init_fs();
     inline void init_spin_ints();
-
+    inline void init_denominators();
+    
     double teimo(int a, int b, int c, int d) {
         // compound index given two indices
         auto eint = [](double x, double y) -> double {
@@ -57,7 +58,7 @@ private:
         double result = eint(
             eint((double)a, (double)b), eint((double)c,(double)d)
         );
-        
+
         if (two_electron_integral.find(result) != two_electron_integral.end()) {
             return two_electron_integral[result];
         } else {

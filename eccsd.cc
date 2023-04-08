@@ -35,10 +35,10 @@ CCSD::CCSD( int num_electron, int dimension,
     memset(this->double_excitation, 0, arr_size * sizeof(double));
     memset(this->single_excitation, 0, arr_size * sizeof(double));
 
-    //spin basis double bar integral
-    this->spin_ints = new double[arr_size];
-    memset(spin_ints, 0, arr_size * sizeof(double));
+    this->spin_ints = new double[arr_size]; //spin basis double bar integral
     init_spin_ints();
+
+    init_denominators();
 }
 
 CCSD::~CCSD() {
@@ -53,11 +53,11 @@ CCSD::~CCSD() {
 double CCSD::run() {
     // run the CCSD
     double ECCSD = 0.0;    // CCSD energy
-    double DECC = 0.0;     // CCSD energy difference
+    double DECC = 1.0;     // CCSD energy difference
 
     // int dimensions = this->dimension;
     
-    int dimensions = dimension * dimension * 4;
+    int dimensions = dimension * dimension;
     double fae[dimensions];
     double fmi[dimensions];
     double fme[dimensions];
@@ -408,6 +408,26 @@ inline void CCSD::init_spin_ints() {
                     value2 *= (i % 2 == l % 2) * (j % 2 == k % 2);
                     
                     spin_ints[index(i - 2, j - 2, k - 2, l - 2)] = value1 - value2;
+                }
+            }
+        }
+    }
+}
+
+inline void CCSD::init_denominators() {
+    for(int a = num_electron; a < dimension; a++) {
+        for(int i = 0; i < num_electron; i++) {
+            denominator_ai[index(a, i)] = fs[index(i, i)] - fs[index(a, a)];
+
+            for (int b = num_electron; b < dimension; b++) {
+                for (int j = 0; j < num_electron; j++) {
+                    double tmp = fs[index(i, i)] + fs[index(j, j)] - \
+                              fs[index(a, a)] - fs[index(b, b)];
+
+                    double_excitation[index(a, b, i, j)] += \
+                        spin_ints[index(i, j, a, b)] / tmp;
+
+                    denominator_abij[index(a, b, i, j)] = tmp;
                 }
             }
         }
