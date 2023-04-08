@@ -186,43 +186,36 @@ void CCSD::update_intermediate
 
 void CCSD::makeT1
 (const double *fme, const double *fmi, const double *fae) {
-    int dim = this->dimension;
-    int Nelec = this->num_electron;
-    double *ts = this->single_excitation;
-    double *td = this->double_excitation;
-    double *fs = this->fs;
-
-    double tsnew[dim][dim];
-    memset(tsnew, 0, dim * dim);
+    double tsnew[dimension][dimension] = {};
     
-    for (int a = Nelec; a<dim; a++) {
+    for (int a = num_electron; a < dimension; a++) {
         for (int i=0; i<this->num_electron; i++) {
             tsnew[a][i] = fs[index(i, a)];
             
-            for (int e = this->num_electron; e<dim; e++) {
-                tsnew[a][i] += ts[index(e, i)] * fae[index(a, e)];
+            for (int e = num_electron; e < dimension; e++) {
+                tsnew[a][i] += single_excitation[index(e, i)] * fae[index(a, e)];
             }
             
-            for (int m=0; m<Nelec; m++) {
-                tsnew[a][i] -= ts[index(a, m)] * fmi[index(m, i)];
+            for (int m=0; m < num_electron; m++) {
+                tsnew[a][i] -= single_excitation[index(a, m)] * fmi[index(m, i)];
                 
-                for (int e=Nelec; e<dim; e++) {
-                    tsnew[a][i] += td[index(a, e, i, m)] * fme[index(m, e)];
+                for (int e=num_electron; e < dimension; e++) {
+                    tsnew[a][i] += double_excitation[index(a, e, i, m)] * fme[index(m, e)];
                     
-                    for (int f=Nelec; f<dim; f++) {
-                        tsnew[a][i] -= 0.5 * td[index(e, f, i, m)] * \
+                    for (int f=num_electron; f<dimension; f++) {
+                        tsnew[a][i] -= 0.5 * double_excitation[index(e, f, i, m)] * \
                             this->spin_ints[index(m, a, e, f)];
                     }
                     
-                    for (int n=0; n<Nelec; n++) {
-                        tsnew[a][i] -= 0.5 * td[index(a, e, m, n)] * \
+                    for (int n=0; n <  num_electron; n++) {
+                        tsnew[a][i] -= 0.5 * double_excitation[index(a, e, m, n)] * \
                             this->spin_ints[index(n, m, e, i)];
                     }
                 }
                 
-                for (int n=0; n<Nelec; n++) {
-                    for (int f=Nelec; f<dim; f++) {
-                        tsnew[a][i] -= ts[index(f, n)] * \
+                for (int n=0; n<num_electron; n++) {
+                    for (int f=num_electron; f<dimension; f++) {
+                        tsnew[a][i] -= single_excitation[index(f, n)] * \
                             this->spin_ints[index(n, a, i, f)];
                     }
                 }
@@ -232,7 +225,7 @@ void CCSD::makeT1
         }
     }
 
-    memcpy(ts, tsnew, dim * dim);
+    memcpy(single_excitation, tsnew, dimension * dimension * sizeof(double));
 }
 
 void CCSD::makeT2
@@ -240,109 +233,96 @@ void CCSD::makeT2
     const double *wabef, const double *wmnij, const double *wmbej
 ) {
     // make T2
-    int dim = this->dimension;
-    int Nelec = this->num_electron;
-    double *ts = this->single_excitation;
-    double *td = this->double_excitation;
-    double *spin_ints = this->spin_ints;
+    double tdnew[dimension][dimension][dimension][dimension];
 
-    double tdnew[dim][dim][dim][dim];
-    memset(tdnew, 0, dim * dim * dim * dim);
-
-    auto tau = [ts, td, this](int a, int b, int i, int j) {
-        return td[index(a, b, i, j)] + \
-        ts[index(a, i)] * ts[index(b, j)] - \
-        ts[index(b, i)] * ts[index(a, j)];
+    auto tau = [this](int a, int b, int i, int j) {
+        return double_excitation[index(a, b, i, j)] + \
+        single_excitation[index(a, i)] * single_excitation[index(b, j)] - \
+        single_excitation[index(b, i)] * single_excitation[index(a, j)];
     };
 
-    for (int a = Nelec; a < dim; a++) {
-        for (int b = Nelec; b < dim; b++) {
-            for (int i = 0; i < Nelec; i++) {
-                for (int j = 0; j < Nelec; j++) {
+    for (int a = num_electron; a < dimension; a++) {
+        for (int b = num_electron; b < dimension; b++) {
+            for (int i = 0; i < num_electron; i++) {
+                for (int j = 0; j < num_electron; j++) {
                     tdnew[a][b][i][j] = spin_ints[index(i, j, a, b)];
 
-                    for (int e = Nelec; e < dim; e++) {
+                    for (int e = num_electron; e < dimension; e++) {
                         tdnew[a][b][i][j] += \
-                            td[index(a, e, i, j)] * fae[index(b, e)] - \
-                            td[index(b, e, i, j)] * fae[index(a, e)];
+                            double_excitation[index(a, e, i, j)] * fae[index(b, e)] - \
+                            double_excitation[index(b, e, i, j)] * fae[index(a, e)];
 
-                        for (int m = 0; m < Nelec; m++) {
+                        for (int m = 0; m < num_electron; m++) {
                             tdnew[a][b][i][j] += 0.5 * (
-                                td[index(a, e, i, j)] * ts[index(b, m)] * fme[index(m, e)] + \
-                                td[index(b, e, i, j)] * ts[index(a, m)] * fme[index(m, e)]
+                                -double_excitation[index(a, e, i, j)] * single_excitation[index(b, m)] * fme[index(m, e)] + \
+                                double_excitation[index(b, e, i, j)] * single_excitation[index(a, m)] * fme[index(m, e)]
                             );
                         }
                     }
 
-                    for (int m = 0; m < Nelec; m++) {
+                    for (int m = 0; m < num_electron; m++) {
                         tdnew[a][b][i][j] += \
-                            -td[index(a, b, i, m)] * fmi[index(m, j)] + \
-                            td[index(a, b, j, m)] * fmi[index(m, i)];
+                            -double_excitation[index(a, b, i, m)] * fmi[index(m, j)] + \
+                            double_excitation[index(a, b, j, m)] * fmi[index(m, i)];
 
-                        for (int e = Nelec; e < dim; e++) {
+                        for (int e = num_electron; e < dimension; e++) {
                             tdnew[a][b][i][j] += 0.5 * (
-                                -td[index(a, b, i, m)] * ts[index(e, j)] * fme[index(m, e)] + \
-                                td[index(a, b, j, m)] * ts[index(e, i)] * fme[index(m, e)]
+                                -double_excitation[index(a, b, i, m)] * single_excitation[index(e, j)] * fme[index(m, e)] + \
+                                double_excitation[index(a, b, j, m)] * single_excitation[index(e, i)] * fme[index(m, e)]
                             );
                         }
                     }
                     
-                    for (int e = Nelec; e < dim; e++) {
+                    for (int e = num_electron; e < dimension; e++) {
                         tdnew[a][b][i][j] += \
-                            ts[index(e, i)] * spin_ints[index(a, b, e, j)] - \
-                            ts[index(e, j)] * spin_ints[index(a, b, e, i)];
+                            single_excitation[index(e, i)] * spin_ints[index(a, b, e, j)] - \
+                            single_excitation[index(e, j)] * spin_ints[index(a, b, e, i)];
                         
-                        for (int f = Nelec; f < dim; f++) {
+                        for (int f = num_electron; f < dimension; f++) {
                             tdnew[a][b][i][j] += 0.5 * tau(e, f, i, j) *
                                 wabef[index(a, b, e, f)];
                         }
                     }
 
-                    for (int m = 0; m < Nelec; m++) {
+                    for (int m = 0; m < num_electron; m++) {
                         tdnew[a][b][i][j] += \
-                            -ts[index(a, m)] * spin_ints[index(m, b, i, j)] + \
-                            ts[index(b, m)] * spin_ints[index(m, a, i, j)];
+                            -single_excitation[index(a, m)] * spin_ints[index(m, b, i, j)] + \
+                            single_excitation[index(b, m)] * spin_ints[index(m, a, i, j)];
 
-                        for (int e = Nelec; e < dim; e++) {
+                        for (int e = num_electron; e < dimension; e++) {
                             tdnew[a][b][i][j] += (
-                                td[index(a, e, i, m)] * wmbej[index(m, b, e, j)] - ts[index(e, i)] * ts[index(a, m)] * spin_ints[index(m, b, e, j)] + \
-                                -td[index(a, e, j, m)] * wmbej[index(m, b, e, i)] + ts[index(e, j)] * ts[index(a, m)] * spin_ints[index(m, b, e, i)] + \
-                                -td[index(b, e, i, m)] * wmbej[index(m, a, e, j)] + ts[index(e, i)] * ts[index(b, m)] * spin_ints[index(m, a, e, j)] + \
-                                td[index(b, e, j, m)] * wmbej[index(m, a, e, i)] - ts[index(e, j)] * ts[index(b, m)] * spin_ints[index(m, a, e, i)]
+                                double_excitation[index(a, e, i, m)] * wmbej[index(m, b, e, j)] - single_excitation[index(e, i)] * single_excitation[index(a, m)] * spin_ints[index(m, b, e, j)] + \
+                                -double_excitation[index(a, e, j, m)] * wmbej[index(m, b, e, i)] + single_excitation[index(e, j)] * single_excitation[index(a, m)] * spin_ints[index(m, b, e, i)] + \
+                                -double_excitation[index(b, e, i, m)] * wmbej[index(m, a, e, j)] + single_excitation[index(e, i)] * single_excitation[index(b, m)] * spin_ints[index(m, a, e, j)] + \
+                                double_excitation[index(b, e, j, m)] * wmbej[index(m, a, e, i)] - single_excitation[index(e, j)] * single_excitation[index(b, m)] * spin_ints[index(m, a, e, i)]
                             );
                         }
 
-                        for (int n = 0; n < Nelec; n++) {
+                        for (int n = 0; n < num_electron; n++) {
                             tdnew[a][b][i][j] += 0.5 * tau(a, b, m, n) *
                                 wmnij[index(a, b, m, n)];
                         }
                     }
 
-                    tdnew[a][b][i][j] /= this->denominator_abij[index(a, b, i, j)];
+                    tdnew[a][b][i][j] /= denominator_abij[index(a, b, i, j)];
                 }
             }
         }
     }
 
-    memcpy(td, tdnew, dim * dim * dim * dim);
+    memcpy(double_excitation, tdnew, dimension * dimension * dimension * dimension * sizeof(double));
 
 }
 
 double CCSD::update_energy() {
-    int dim = this->dimension;
-    int Nelec = this->num_electron;
-    double *ts = this->single_excitation;
-    double *td = this->double_excitation;
-    double *spin_ints = this->spin_ints;
-
     double energy = 0.0;
 
-    for (int i = Nelec; i < dim; i++) {
-        for (int a = Nelec; a < dim; a++) {
-            for (int j = 0; j < Nelec; j++) {
-                for (int b = 0; b < Nelec; b++) {
-                    energy += 0.25 * spin_ints[index(i, j, a, b)] * td[index(a, b, i, j)];
-                    energy += 0.5 * spin_ints[index(i, j, a, b)] * ts[index(a, i)] * ts[index(b, j)];
+    for (int i = 0; i < num_electron; i++) {
+        for (int a = num_electron; a < dimension; a++) {
+            for (int j = 0; j < num_electron; j++) {
+                for (int b = num_electron; b < dimension; b++) {
+                    energy += 0.25 * spin_ints[index(i, j, a, b)] * double_excitation[index(a, b, i, j)];
+                    energy += 0.5 * spin_ints[index(i, j, a, b)] * single_excitation[index(a, i)] * single_excitation[index(b, j)];
                 }
             }
         }
