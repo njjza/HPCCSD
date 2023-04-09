@@ -240,60 +240,62 @@ void CCSD::makeT2
         for (int b = num_electron; b < dimension; b++) {
             for (int i = 0; i < num_electron; i++) {
                 for (int j = 0; j < num_electron; j++) {
-                    tdnew[index(a, b, i, j)] = spin_ints[index(i, j, a, b)];
-
+                    double result = spin_ints[index(i, j, a, b)];
+                                        
                     for (int e = num_electron; e < dimension; e++) {
-                        tdnew[index(a, b, i, j)] += \
+                        result += \
                             double_excitation[index(a, e, i, j)] * fae[index(b, e)] - \
                             double_excitation[index(b, e, i, j)] * fae[index(a, e)];
 
                         for (int m = 0; m < num_electron; m++) {
-                            tdnew[index(a, b, i, j)] += -0.5 * double_excitation[index(a, e, i, j)] * single_excitation[index(b, m)] * fme[index(m, e)];
-                            tdnew[index(a, b, i, j)] += 0.5 * double_excitation[index(b, e, i, j)] * single_excitation[index(a, m)] * fme[index(m, e)];
+                            result += -0.5 * double_excitation[index(a, e, i, j)] * single_excitation[index(b, m)] * fme[index(m, e)];
+                            result += 0.5 * double_excitation[index(b, e, i, j)] * single_excitation[index(a, m)] * fme[index(m, e)];
                         }
                     }
 
                     for (int m = 0; m < num_electron; m++) {
-                        tdnew[index(a, b, i, j)] += \
+                        result += \
                             -double_excitation[index(a, b, i, m)] * fmi[index(m, j)] + \
                             double_excitation[index(a, b, j, m)] * fmi[index(m, i)];
 
                         for (int e = num_electron; e < dimension; e++) {
-                            tdnew[index(a, b, i, j)] += -0.5 * double_excitation[index(a, b, i, m)] * single_excitation[index(e, j)] * fme[index(m, e)];
-                            tdnew[index(a, b, i, j)] += 0.5 * double_excitation[index(a, b, j, m)] * single_excitation[index(e, i)] * fme[index(m, e)];
+                            result += -0.5 * double_excitation[index(a, b, i, m)] * single_excitation[index(e, j)] * fme[index(m, e)];
+                            result += 0.5 * double_excitation[index(a, b, j, m)] * single_excitation[index(e, i)] * fme[index(m, e)];
                         }
                     }
                     
                     for (int e = num_electron; e < dimension; e++) {
-                        tdnew[index(a, b, i, j)] += \
+                        result += \
                             single_excitation[index(e, i)] * spin_ints[index(a, b, e, j)] - \
                             single_excitation[index(e, j)] * spin_ints[index(a, b, e, i)];
                         
                         for (int f = num_electron; f < dimension; f++) {
-                            tdnew[index(a, b, i, j)] += 0.5 * tau(e, f, i, j) *
+                            result += 0.5 * tau(e, f, i, j) *
                                 wabef[index(a, b, e, f)];
                         }
                     }
 
                     for (int m = 0; m < num_electron; m++) {
-                        tdnew[index(a, b, i, j)] += \
+                        result += \
                             -single_excitation[index(a, m)] * spin_ints[index(m, b, i, j)] + \
                             single_excitation[index(b, m)] * spin_ints[index(m, a, i, j)];
 
                         for (int e = num_electron; e < dimension; e++) {
-                            tdnew[index(a, b, i, j)] += double_excitation[index(a, e, i, m)] * wmbej[index(m, b, e, j)] - single_excitation[index(e, i)] * single_excitation[index(a, m)] * spin_ints[index(m, b, e, j)];
-                            tdnew[index(a, b, i, j)] += -double_excitation[index(a, e, j, m)] * wmbej[index(m, b, e, i)] + single_excitation[index(e, j)] * single_excitation[index(a, m)] * spin_ints[index(m, b, e, i)];
-                            tdnew[index(a, b, i, j)] += -double_excitation[index(b, e, i, m)] * wmbej[index(m, a, e, j)] + single_excitation[index(e, i)] * single_excitation[index(b, m)] * spin_ints[index(m, a, e, j)];
-                            tdnew[index(a, b, i, j)] += double_excitation[index(b, e, j, m)] * wmbej[index(m, a, e, i)] - single_excitation[index(e, j)] * single_excitation[index(b, m)] * spin_ints[index(m, a, e, i)];
+                            result += double_excitation[index(a, e, i, m)] * wmbej[index(m, b, e, j)] - single_excitation[index(e, i)] * single_excitation[index(a, m)] * spin_ints[index(m, b, e, j)];
+                            result += -double_excitation[index(a, e, j, m)] * wmbej[index(m, b, e, i)] + single_excitation[index(e, j)] * single_excitation[index(a, m)] * spin_ints[index(m, b, e, i)];
+                            result += -double_excitation[index(b, e, i, m)] * wmbej[index(m, a, e, j)] + single_excitation[index(e, i)] * single_excitation[index(b, m)] * spin_ints[index(m, a, e, j)];
+                            result += double_excitation[index(b, e, j, m)] * wmbej[index(m, a, e, i)] - single_excitation[index(e, j)] * single_excitation[index(b, m)] * spin_ints[index(m, a, e, i)];
                         }
 
                         for (int n = 0; n < num_electron; n++) {
-                            tdnew[index(a, b, i, j)] += 0.5 * tau(a, b, m, n) *
+                            result += 0.5 * tau(a, b, m, n) *
                                 wmnij[index(m, n, i, j)];
                         }
                     }
 
-                    tdnew[index(a, b, i, j)] /= denominator_abij[index(a, b, i, j)];
+                    const int abij_index = index(a, b, i, j);
+                    result /= denominator_abij[abij_index];
+                    tdnew[abij_index] = result;
                 }
             }
         }
