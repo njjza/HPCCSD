@@ -69,11 +69,9 @@ double CCSD::run() {
         // update the intermediate
         update_intermediate(fae, fmi, fme, wmnij, wabef, wmbej);
 
-        printf("tsnew: \n");
         // make T1
         makeT1(tsnew, fme, fmi, fae);
-        printf("\n");
-
+        
         // make T2
         makeT2(tdnew, fae, fmi, fme, wabef, wmnij, wmbej);
 
@@ -320,7 +318,7 @@ double CCSD::update_energy() {
 }
 
 inline void CCSD::init_fs() {
-    int dimensions = dimension * 2; 
+    int dimensions = dimension; 
     double tmp[dimensions];
 
     for (int i = 0; i < dimensions; i++) {
