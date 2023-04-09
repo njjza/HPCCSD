@@ -2,7 +2,6 @@
 #define ECCSD_H
 
 #include <cmath>
-#include <cstdlib>
 #include <map>
 #include <string.h>
 #include <stdio.h>
@@ -32,8 +31,8 @@ private:
         double *wabef, double *wmbej
     );
     double update_energy();
-    void makeT1(const double *fme, const double *fmi, const double *fae);
-    void makeT2(const double *fae, const double *fmi, const double *fme, 
+    void makeT1(double *tsnew, const double *fme, const double *fmi, const double *fae);
+    void makeT2(double *tdnew, const double *fae, const double *fmi, const double *fme, 
                 const double *wabef, const double *wmnij, const double *wmbej);
 
     inline int index(int i, int j, int k, int l) {
@@ -48,7 +47,7 @@ private:
     inline void init_fs();
     inline void init_spin_ints();
     inline void init_denominators();
-    
+
     double teimo(int a, int b, int c, int d) {
         // compound index given two indices
         auto eint = [](double x, double y) -> double {
