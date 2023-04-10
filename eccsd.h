@@ -14,7 +14,6 @@ private:
     int nuclear_repulsion_energy;                   // nuclear repulsion energy
     int scf_energy;                                 // scf energy
     double *orbital_energy;                         // molecular orbital energy
-    std::map<double, double> two_electron_integral; // two electron repulsion integral
 
     double *single_excitation;                      // T1
     double *double_excitation;                      // T2
@@ -30,11 +29,26 @@ private:
         double *fae, double *fmi, double *fme, double *wmnij, 
         double *wabef, double *wmbej
     );
-    double update_energy();
+    void update_intermediate(
+        double *fae, double *fmi, double *fme, double *wmnij, 
+        double *wabef, double *wmbej, int x
+    );
     void makeT1(double *tsnew, const double *fme, const double *fmi, const double *fae);
     void makeT2(double *tdnew, const double *fae, const double *fmi, const double *fme, 
                 const double *wabef, const double *wmnij, const double *wmbej);
-
+    double update_energy();
+    void update_fae(double *fae);
+    void update_fmi(double *fmi);
+    void update_fme(double *fme);
+    
+    // constructor helper methods
+    void init_fs();
+    double teimo(int a, int b, int c, int d, std::map<double, double> two_electron_integral);
+    double taus(int a, int b, int c, int d);
+    double tau(int a, int b, int i, int j);
+    // initialize spin basis double bar integral and denominators
+    void init_spin_ints(std::map<double, double> two_electron_integral);
+    void init_denominators();
     
     inline int index(int i, int j, int k, int l) {
         return i * dimension * dimension * dimension + \
@@ -45,34 +59,6 @@ private:
         return i * dimension + j;
     }
 
-    inline void init_fs();
-    inline void init_spin_ints();
-    inline void init_denominators();
-
-    double teimo(int a, int b, int c, int d) {
-        // compound index given two indices
-        auto eint = [](double x, double y) -> double {
-            return x > y ? (x * (x + 1.0)) / 2.0 + y : (y * (y + 1.0)) / 2.0 + x; 
-        };
-
-        double result = eint(
-            eint((double)a, (double)b), eint((double)c,(double)d)
-        );
-
-        if (two_electron_integral.find(result) != two_electron_integral.end()) {
-            return two_electron_integral[result];
-        } else {
-            return 0.0;
-        }
-    }
-
-    void test_arr_output(double *arr, int size) {
-        printf("{");
-        for (int i = 0; i < size; i++) {
-            printf("%f, ", arr[i]);
-        }
-        printf("}\n");
-    }
 
 public:
     // public methods
