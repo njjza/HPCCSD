@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Wall -g -std=c++23 -fopenmp
+CFLAGS = -Wall  -std=c++23 -fopenmp
 
 all: main
 

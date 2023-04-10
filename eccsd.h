@@ -35,6 +35,7 @@ private:
     void makeT2(double *tdnew, const double *fae, const double *fmi, const double *fme, 
                 const double *wabef, const double *wmnij, const double *wmbej);
 
+    
     inline int index(int i, int j, int k, int l) {
         return i * dimension * dimension * dimension + \
                j * dimension * dimension + k * dimension + l;
