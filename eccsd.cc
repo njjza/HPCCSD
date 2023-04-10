@@ -63,28 +63,44 @@ double CCSD::run() {
     double *tdnew = new double[dimensions];
     
     double ECCSD = 0.0;    // CCSD energy
+    double OLDCC = 0.0;    // CCSD energy of previous iteration
     double DECC = 1.0;     // CCSD energy difference
+    
+    // omp_set_num_threads(4);
+    #pragma omp parallel shared(DECC, ECCSD, OLDCC)
+    {
+        do {
+            // update the intermediate
+            // omp_set_num_threads(4);
+            update_intermediate(fae, fmi, fme, wmnij, wabef, wmbej);
 
-    while(DECC > 1.0e-9) {
-        double OLDCC = ECCSD;   // CC energy of previous iteration
+            #pragma omp barrier
 
-        // update the intermediate
-        update_intermediate(fae, fmi, fme, wmnij, wabef, wmbej);
+            makeT1(tsnew, fme, fmi, fae);
+            makeT2(tdnew, fae, fmi, fme, wabef, wmnij, wmbej);
 
-        // make T1
-        makeT1(tsnew, fme, fmi, fae);
-        
-        // make T2
-        makeT2(tdnew, fae, fmi, fme, wabef, wmnij, wmbej);
+            #pragma omp barrier
+            
+            #pragma omp single
+            memcpy(single_excitation, tsnew, dimension * dimension * sizeof(double));
+            #pragma omp single
+            memcpy(double_excitation, tdnew, dimensions * sizeof(double));
+            
+            OLDCC = ECCSD;
 
-        memcpy(single_excitation, tsnew, dimension * dimension * sizeof(double));
-        memcpy(double_excitation, tdnew, dimensions * sizeof(double));
-        
-        // update the energy
-        ECCSD = update_energy();
+            #pragma omp barrier
 
-        // update the energy difference
-        DECC = std::abs(ECCSD - OLDCC);
+            // update the energy
+            ECCSD = update_energy();
+            #pragma omp flush(ECCSD)
+
+            // update the energy difference
+            #pragma omp single
+            DECC = std::abs(ECCSD - OLDCC);
+            #pragma omp flush(DECC)
+            #pragma omp barrier
+        }
+        while(DECC > 1.0e-9);
     }
 
     return ECCSD;
@@ -313,15 +329,12 @@ void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wm
 
 #ifdef DEBUG_OMP
 void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wmnij, double *wabef, double *wmbej) {
-    const int dimension = this->dimension;
-    const int num_electron = this->num_electron;
-
-    #pragma omp parallel sections shared(dimension, num_electron)
+    #pragma omp sections
     {
         // update fmi
         #pragma omp section
         {
-            // #pragma omp parallel for collapse(2)
+            // #pragma omp for collapse(2)
             for(int a = num_electron; a < dimension; a++) {
                 for (int e = num_electron; e < dimension; e++) {
                     double fmi_result = (1 - a == e) * fs[index(a, e)];
@@ -347,7 +360,6 @@ void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wm
         // update fme
         #pragma omp section
         {
-            // #pragma omp parallel for collapse(2)
             for(int m = 0; m < num_electron; m++) {
                 for(int e = num_electron; e < dimension; e++) {
                     double fae_result = fs[index(m, e)];
@@ -368,7 +380,6 @@ void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wm
         // update wmnij
         #pragma omp section
         {
-            // #pragma omp parallel for collapse(4)
             for (int m = 0; m < num_electron; m++) {
                 for (int n = 0; n < num_electron; n++) {
                     for(int i = 0; i < num_electron; i++) {
@@ -396,7 +407,6 @@ void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wm
         // update wabef
         #pragma omp section
         {
-            // #pragma omp parallel for collapse(4)
             for (int a = num_electron; a < dimension; a++) {
                 for (int b = num_electron; b < dimension; b++) {
                     for (int e = num_electron; e < dimension; e++) {
@@ -424,7 +434,6 @@ void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wm
         // update wmbej
         #pragma omp section
         {
-            // #pragma omp parallel for collapse(4)
             for (int m = 0; m < num_electron; m++) {
                 for (int b = num_electron; b < dimension; b++) {
                     for (int e = num_electron; e < dimension; e++) {
@@ -459,7 +468,8 @@ void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wm
 void CCSD::makeT1
 (   double *tsnew, const double *fme, const double *fmi, 
     const double *fae) {
-    
+
+    #pragma omp for
     for (int a = num_electron; a < dimension; a++) {
         for (int i = 0; i< num_electron; i++) {
             double result = fs[index(i, a)];
@@ -503,13 +513,7 @@ void CCSD::makeT2
     const double *wabef, const double *wmnij, const double *wmbej
 ) {
     // make T2
-    auto tau = [this](int a, int b, int i, int j) {
-        return double_excitation[index(a, b, i, j)] + \
-        single_excitation[index(a, i)] * single_excitation[index(b, j)] - \
-        single_excitation[index(b, i)] * single_excitation[index(a, j)];
-    };
-
-    // #pragma omp parallel for collapse(4)
+    #pragma omp parallel for collapse(4)
     for (int a = num_electron; a < dimension; a++) {
         for (int b = num_electron; b < dimension; b++) {
             for (int i = 0; i < num_electron; i++) {
@@ -587,7 +591,7 @@ double CCSD::update_energy() {
     double energy = 0.0;
 
 #ifdef OMP_DEBUG
-    #pragma omp parallel for collapse(4) schedule(dynamic) reduction(+:energy)
+    #pragma omp for collapse(4) reduction(+:energy)
 #endif
     for (int i = 0; i < num_electron; i++) {
         for (int a = num_electron; a < dimension; a++) {
