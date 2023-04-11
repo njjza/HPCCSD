@@ -101,41 +101,47 @@ double CCSD::run() {
                 #pragma omp section
                 {
                     // update the single excitation
-                    memcpy(single_excitation, tsnew, dimension * dimension * 
-                           sizeof(double));
+                    double *temp = tsnew;
+                    tsnew = single_excitation;
+                    single_excitation = temp;
+                    #pragma omp flush(tsnew)
+                    #pragma omp flush(single_excitation)
+                    // memcpy(single_excitation, tsnew, dimension * dimension * 
+                    //        sizeof(double));
                 }
                 #pragma omp section
                 {
-                    // update the double excitation
-                    memcpy(double_excitation, tdnew, dimensions * 
-                           sizeof(double));
+                    double *temp = tdnew;
+                    tdnew = double_excitation;
+                    double_excitation = temp;
+                    #pragma omp flush(tdnew)
+                    #pragma omp flush(double_excitation)
+
+                    // // update the double excitation
+                    // memcpy(double_excitation, tdnew, dimensions * 
+                    //        sizeof(double));
                 }
             }
 
-            #pragma omp single
-            {
-                ECCSD = 0.0;
-                #pragma omp flush(ECCSD)
-            }
-            
-            #pragma omp for reduction(+:ECCSD)
-            for (int i = 0; i < num_electron; i++) {
-                for (int a = num_electron; a < dimension; a++) {
-                    for (int j = 0; j < num_electron; j++) {
-                        for (int b = num_electron; b < dimension; b++) {
-                            double spin_ints_ijab = spin_ints[index(i, j, a, b)];
+            // ECCSD = update_energy();            
+            // #pragma omp for reduction(+:ECCSD)
+            // for (int i = 0; i < num_electron; i++) {
+            //     for (int a = num_electron; a < dimension; a++) {
+            //         for (int j = 0; j < num_electron; j++) {
+            //             for (int b = num_electron; b < dimension; b++) {
+            //                 double spin_ints_ijab = spin_ints[index(i, j, a, b)];
 
-                            ECCSD += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
-                            ECCSD += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
-                        }
-                    }
-                }
-            }
+            //                 ECCSD += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
+            //                 ECCSD += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
+            //             }
+            //         }
+            //     }
+            // }
 
             // update the energy difference
             #pragma omp single
             {
-                // ECCSD = update_energy();   
+                ECCSD = update_energy();   
                 DECC = std::abs(ECCSD - OLDCC);
                 #pragma omp flush(DECC)
                 OLDCC = ECCSD;
@@ -148,6 +154,25 @@ double CCSD::run() {
     return ECCSD;
 }
 
+double CCSD::update_energy() {
+    double energy = 0.0;
+    // #pragma omp for reduction(+:ECCSD)
+    for (int i = 0; i < num_electron; i++) {
+        for (int a = num_electron; a < dimension; a++) {
+            for (int j = 0; j < num_electron; j++) {
+                for (int b = num_electron; b < dimension; b++) {
+                    double spin_ints_ijab = spin_ints[index(i, j, a, b)];
+
+                    energy += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
+                    energy += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
+                }
+            }
+        }
+    }
+
+    return energy;
+        
+}
 inline double CCSD::taus(int a, int b, int i, int j) {
     return double_excitation[index(a, b, i, j)] + \
         0.5*(

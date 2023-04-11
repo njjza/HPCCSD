@@ -63,7 +63,8 @@ private:
     inline int index(int i, int j) {
         return i * dimension + j;
     }
-
+    
+    double update_energy();
 public:
     // public methods
     CCSD() = delete;

@@ -6,7 +6,7 @@
 
 int main(int argc, char *argv[]) {
     int nelec = 2;
-    int dim = 20;
+    int dim = 40;
     double orbital_energy[] = {-1.52378656, -0.26763148};
     double e_nuc = 1.1386276671;
     double e_n = -3.99300007772;
