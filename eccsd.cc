@@ -62,8 +62,6 @@ CCSD::~CCSD() {
     delete[] this->spin_ints;
     delete[] this->fs;
     delete[] this->f;
-    delete[] this->f;
-    delete[] this->f;
     delete[] this->wmnij;
     delete[] this->wabef;
     delete[] this->wmbej;

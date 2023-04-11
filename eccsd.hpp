@@ -11,26 +11,20 @@
 class CCSD {
 private:
     // private members
-    int num_electron;                               // number of electrons
-    int dimension;                                  // dimension of the matrix
-    int nuclear_repulsion_energy;                   // nuclear repulsion energy
-    int scf_energy;                                 // scf energy
-    double *orbital_energy;                         // molecular orbital energy
-
-    double *single_excitation;                      // T1   2d matrixes
-    double *double_excitation;                      // T2   4d matrixes
-
-    double *denominator_ai;                         // denominator of T1
-    double *denominator_abij;                       // denominator of T2
-
-    double *spin_ints;                              // spin basis double bar integral
-    double *fs;                                     // fock matrix
+    int num_electron;                           // number of electrons
+    int dimension;                              // dimension of the matrix
+    int nuclear_repulsion_energy;               // nuclear repulsion energy
+    int scf_energy;                             // scf energy
+    double *orbital_energy;                     // molecular orbital energy
+    double *single_excitation;                  // T1   2d matrixes
+    double *double_excitation;                  // T2   4d matrixes
+    double *denominator_ai;                     // denominator of T1
+    double *denominator_abij;                   // denominator of T2
+    double *spin_ints;                          // spin basis double bar integral
+    double *fs;                                 // fock matrix
 
     //intermediate 2d matrixes 
-    double *f;
-    double *fae;
-    double *fmi;
-    double *fme;
+    double *f;                                  // single intermediate matrix
     double *tsnew;
 
     //intermediate 4d matrixes
