@@ -3,17 +3,16 @@
 // #include "mpi.h"
 #include <immintrin.h> // Header for AVX2
 
-CCSD::CCSD( int num_electron, int dimension, 
-            const int nuclear_repulsion_energy, int scf_energy, 
-            double *orbital_energy, 
-            double* two_electron_integral, int two_electron_integral_size) {
+CCSD::CCSD( int num_electron, int dimension, int scf_energy,
+            const int nuclear_repulsion_energy, 
+            const double *orbital_energy, const double* two_electron_integral, 
+            const int two_electron_integral_size) {
     
     this->num_electron = num_electron;
     this->dimension = dimension * 2;
 
     this->nuclear_repulsion_energy = nuclear_repulsion_energy;
     this->scf_energy = scf_energy;
-    this->orbital_energy = orbital_energy;
 
     // 2d array
     size_t arr_size = dimension * dimension * 4;
@@ -29,7 +28,7 @@ CCSD::CCSD( int num_electron, int dimension,
     memset(single_excitation, 0, arr_size * sizeof(double));
     memset(denominator_ai, 0, arr_size * sizeof(double));
 
-    init_fs();
+    init_fs(orbital_energy);
 
     // 4d array
     arr_size *= arr_size;
@@ -77,7 +76,7 @@ double CCSD::run() {
     
     // through testing, the system has the better performance when the number
     // of the cores matches the number of dimensions.
-    #ifdef DEBUG_OMP
+    #ifdef OMP
     omp_set_num_threads(dimension);
     #pragma omp parallel shared(DECC, ECCSD, OLDCC)
     #endif
@@ -85,8 +84,6 @@ double CCSD::run() {
         do {
             // update the intermediate
             update_intermediate();
-
-            #pragma omp barrier
 
             makeT1(single_intermediate);
             makeT2(single_intermediate, double_intermediate);
@@ -115,24 +112,35 @@ double CCSD::run() {
                 }
             }
 
-            #pragma omp single nowait
+            #pragma omp single
             {
+                ECCSD = 0.0;
+                #pragma omp flush(ECCSD)
+            }
+            
+            #pragma omp for reduction(+:ECCSD)
+            for (int i = 0; i < num_electron; i++) {
+                for (int a = num_electron; a < dimension; a++) {
+                    for (int j = 0; j < num_electron; j++) {
+                        for (int b = num_electron; b < dimension; b++) {
+                            double spin_ints_ijab = spin_ints[index(i, j, a, b)];
+
+                            ECCSD += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
+                            ECCSD += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
+                        }
+                    }
+                }
+            }
+
+            // update the energy difference
+            #pragma omp single
+            {
+                // ECCSD = update_energy();   
+                DECC = std::abs(ECCSD - OLDCC);
+                #pragma omp flush(DECC)
                 OLDCC = ECCSD;
                 #pragma omp flush(OLDCC)
             }
-            
-            // update the energy
-            ECCSD = update_energy();
-
-            // update the energy difference
-            #pragma omp single 
-            {
-                DECC = std::abs(ECCSD - OLDCC);
-                #pragma omp flush(ECCSD)
-                #pragma omp flush(DECC)
-            }
-
-            #pragma omp barrier
         }
         while(DECC > 1.0e-9);
     }
@@ -155,7 +163,6 @@ inline double CCSD::tau(int a, int b, int i, int j) {
 }
 
 void CCSD::update_intermediate() {
-    
     // update fae
     #pragma omp for nowait
     for(int a = num_electron; a < dimension; a++) {
@@ -279,7 +286,7 @@ void CCSD::update_intermediate() {
     }
 
     // update wmbej
-    #pragma omp for    //remove wait so the for loop can act as a barrier
+    #pragma omp for collapse(4)  //remove wait so the for loop can act as a barrier
     for (int m = 0; m < num_electron; m++) {
         for (int b = num_electron; b < dimension; b++) {
             for (int e = num_electron; e < dimension; e++) {
@@ -350,6 +357,8 @@ void CCSD::makeT1(const double *single_intermediate) {
             }
 
             result /= denominator_ai[index(a, i)];
+
+            #pragma omp atomic write
             tsnew[index(a, i)] = result;
         }
     }
@@ -438,12 +447,15 @@ void CCSD::makeT2(const double* single_intermediate,
                             result -= single_excitation[index(e, j)] *\
                                       single_excitation[index(b, m)] * \
                                       spin_ints[index(m, a, e, i)];
+                
+                            result += 0.5 * tau(a, b, m, e - num_electron) * \
+                                      double_intermediate[
+                                            index(m, e - num_electron, i, j)];
                         }
 
-                        #pragma omp simd reduction(-:result)
-                        for (int n = 0; n < num_electron; n++) {
-                            result += 0.5 * tau(a, b, m, n) * double_intermediate[index(m, n, i, j)];
-                        }
+                        // #pragma omp simd reduction(-:result)
+                        // for (int n = 0; n < num_electron; n++) {
+                        // }
                     }
 
                     int abij_index = index(a, b, i, j);
@@ -456,29 +468,8 @@ void CCSD::makeT2(const double* single_intermediate,
     }
 }
 
-inline double CCSD::update_energy() {
-    double energy = 0.0;
 
-#ifdef OMP_DEBUG
-    #pragma omp for reduction(+:energy)
-#endif
-    for (int i = 0; i < num_electron; i++) {
-        for (int a = num_electron; a < dimension; a++) {
-            for (int j = 0; j < num_electron; j++) {
-                for (int b = num_electron; b < dimension; b++) {
-                    double spin_ints_ijab = spin_ints[index(i, j, a, b)];
-
-                    energy += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
-                    energy += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
-                }
-            }
-        }
-    }
-
-    return energy;
-}
-
-inline void CCSD::init_fs() {
+inline void CCSD::init_fs(const double *orbital_energy) {
     int dimensions = dimension; 
     double tmp[dimensions];
 
@@ -492,8 +483,8 @@ inline void CCSD::init_fs() {
     }
 }
 
-void CCSD::init_spin_ints(double* two_electron_integral, 
-                          int two_electron_integral_size) {
+void CCSD::init_spin_ints(const double* two_electron_integral, 
+                          const int two_electron_integral_size) {
     #pragma omp simd collapse(4)
     for (int i = 2; i < dimension + 2; i++) {
         for (int j = 2; j < dimension + 2; j++) {
@@ -567,9 +558,10 @@ void CCSD::init_denominators() {
     }
 }
 
-inline double CCSD::teimo( int a, int b, int c, int d, double 
-                           *two_electron_integral, 
-                           int two_electron_integral_size) {
+inline double CCSD::teimo( int a, int b, int c, int d, 
+                           const double *two_electron_integral, 
+                           const int two_electron_integral_size) {
+
     auto eint = [] (int x, int y) {
         return (x > y) ? (x * (x + 1) / 2 + y) : (y * (y + 1) / 2 + x);
     };

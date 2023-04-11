@@ -15,12 +15,16 @@ private:
     int dimension;                              // dimension of the matrix
     int nuclear_repulsion_energy;               // nuclear repulsion energy
     int scf_energy;                             // scf energy
-    double *orbital_energy;                     // molecular orbital energy
     double *single_excitation;                  // T1   2d matrixes
     double *double_excitation;                  // T2   4d matrixes
     double *denominator_ai;                     // denominator of T1
+    
+    // TODO: rewriting this to the sparse matrix
     double *denominator_abij;                   // denominator of T2
+
     double *spin_ints;                          // spin basis double bar integral
+    
+    // TODO: making sparse matrix an option for fock matrix
     double *fs;                                 // fock matrix
 
     //intermediate 2d matrixes 
@@ -34,17 +38,19 @@ private:
     void update_intermediate();
     void makeT1(const double *single_intermediate);
     void makeT2(const double *single_intermediate, const double *double_intermediate);
-    double update_energy();
     
     // constructor helper methods
-    void init_fs();
-    void init_spin_ints(double *two_electron_integral, int two_electron_integral_size);
+    void init_fs(const double *orbital_energy);
+    void init_spin_ints(const double *two_electron_integral, 
+                        const int two_electron_integral_size);
     void init_spin_ints(std::unordered_map<double, double> two_electron_integral);
     void init_denominators();
     
-    double teimo(int a, int b, int c, int d, double* two_electron_integral, 
-                 int two_electron_integral_size);
-    double teimo(int a, int b, int c, int d, std::unordered_map<double, double> two_electron_integral);
+    double teimo(int a, int b, int c, int d, 
+                 const double* two_electron_integral, 
+                 const int two_electron_integral_size);
+    double teimo(int a, int b, int c, int d, 
+                 std::unordered_map<double, double> two_electron_integral);
 
     double taus(int a, int b, int c, int d);
     double tau(int a, int b, int i, int j);
@@ -63,11 +69,14 @@ public:
     CCSD() = delete;
 
     CCSD( int num_electron, int dimension, int nuclear_repulsion_energy, 
-          int scf_energy, double *orbital_energy, 
-          double* two_electron_integral, int two_electron_integral_size);
+          int scf_energy, const double *orbital_energy, 
+          const double* two_electron_integral, 
+          const int two_electron_integral_size);
+    
     CCSD( int num_electron, int dimension, int nuclear_repulsion_energy, 
           int scf_energy, double *orbital_energy, 
           std::unordered_map<double, double> two_electron_integral);
+    
     ~CCSD();
 
     double run();
