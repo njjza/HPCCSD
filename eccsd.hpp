@@ -24,40 +24,23 @@ private:
     double *fs;                                 // fock matrix
 
     //intermediate 2d matrixes 
-    double *f;                                  // single intermediate matrix
+    double *single_intermediate;                                  // single intermediate matrix
     double *tsnew;
 
     //intermediate 4d matrixes
-    double *wmnij;
-    double *wabef;
-    double *wmbej;
+    double *double_intermediate;
     double *tdnew;
 
-    // private methods
-    // void update_intermediate(
-    //     double *fae, double *fmi, double *fme, double *wmnij, 
-    //     double *wabef, double *wmbej
-    // );
-
-    void update_intermediate(
-        double *f, double *wmnij, double *wabef, double *wmbej
-    );
-
-    // void update_intermediate(
-    //     double *fae, double *fmi, double *fme, double *wmnij, 
-    //     double *wabef, double *wmbej, int x
-    // );
-    
-    // void makeT1(double *tsnew, const double *fme, const double *fmi, const double *fae);
-    // void makeT2(double *tdnew, const double *fae, const double *fmi, const double *fme, 
-    //             const double *wabef, const double *wmnij, const double *wmbej);
-    void makeT1(double *tsnew, const double *f);
-    void makeT2(double *tdnew, const double *f, 
-                const double *wabef, const double *wmnij, const double *wmbej);
+    void update_intermediate();
+    void makeT1(const double *single_intermediate);
+    void makeT2(const double *single_intermediate, const double *double_intermediate);
     double update_energy();
     
     // constructor helper methods
     void init_fs();
+    void init_spin_ints(double *two_electron_integral, int two_electron_integral_size);
+    void init_spin_ints(std::unordered_map<double, double> two_electron_integral);
+    void init_denominators();
     
     double teimo(int a, int b, int c, int d, double* two_electron_integral, 
                  int two_electron_integral_size);
@@ -65,11 +48,6 @@ private:
 
     double taus(int a, int b, int c, int d);
     double tau(int a, int b, int i, int j);
-    // initialize spin basis double bar integral and denominators
-
-    void init_spin_ints(double *two_electron_integral, int two_electron_integral_size);
-    void init_spin_ints(std::unordered_map<double, double> two_electron_integral);
-    void init_denominators();
     
     inline int index(int i, int j, int k, int l) {
         return i * dimension * dimension * dimension + \
