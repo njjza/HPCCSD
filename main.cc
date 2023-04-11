@@ -1,4 +1,4 @@
-#include "eccsd.h"
+#include "eccsd.hpp"
 #include <stdio.h>
 #include <iostream>
 #include <limits>
