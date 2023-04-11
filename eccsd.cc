@@ -329,135 +329,120 @@ void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wm
 
 #ifdef DEBUG_OMP
 void CCSD::update_intermediate(double *fae, double *fmi, double *fme, double *wmnij, double *wabef, double *wmbej) {
-    #pragma omp sections
-    {
-        // update fmi
-        #pragma omp section
-        {
-            // #pragma omp for collapse(2)
-            for(int a = num_electron; a < dimension; a++) {
-                for (int e = num_electron; e < dimension; e++) {
-                    double fmi_result = (1 - a == e) * fs[index(a, e)];
 
-                    for(int m = 0; m < num_electron; m++) {
-                        fmi_result -= fs[index(m, e)] * single_excitation[index(a, m)];
+    #pragma omp for collapse(2)
+    for(int a = num_electron; a < dimension; a++) {
+        for (int e = num_electron; e < dimension; e++) {
+            double fmi_result = (1 - a == e) * fs[index(a, e)];
 
-                        for (int f = num_electron; f < dimension; f++) {
-                            fmi_result += single_excitation[index(f, m)] * spin_ints[index(m, a, f, e)];
-
-                            for (int n = 0; n < num_electron; n++) {
-                                fmi_result -= 0.5 * taus(a, f, m, n) * spin_ints[index(m, n, e, f)];
-                            }
-                        }
-                    }
-
-                    #pragma omp atomic write
-                    fae[index(a, e)] = fmi_result;
-                }
-            }
-        }
-
-        // update fme
-        #pragma omp section
-        {
             for(int m = 0; m < num_electron; m++) {
-                for(int e = num_electron; e < dimension; e++) {
-                    double fae_result = fs[index(m, e)];
+                fmi_result -= fs[index(m, e)] * single_excitation[index(a, m)];
 
-                    #pragma omp simd collapse(2)
-                    for(int n = 0; n < num_electron; n++) {                        
-                        for(int f = num_electron; f < dimension; f++) {
-                            fae_result += single_excitation[index(f, n)] * spin_ints[index(m, n, e, f)];   
+                for (int f = num_electron; f < dimension; f++) {
+                    fmi_result += single_excitation[index(f, m)] * spin_ints[index(m, a, f, e)];
+
+                    for (int n = 0; n < num_electron; n++) {
+                        fmi_result -= 0.5 * taus(a, f, m, n) * spin_ints[index(m, n, e, f)];
+                    }
+                }
+            }
+
+            #pragma omp atomic write
+            fae[index(a, e)] = fmi_result;
+        }
+    }
+
+    // update fme
+    #pragma omp for collapse(2)
+    for(int m = 0; m < num_electron; m++) {
+        for(int e = num_electron; e < dimension; e++) {
+            double fae_result = fs[index(m, e)];
+
+            #pragma omp simd collapse(2)
+            for(int n = 0; n < num_electron; n++) {                        
+                for(int f = num_electron; f < dimension; f++) {
+                    fae_result += single_excitation[index(f, n)] * spin_ints[index(m, n, e, f)];   
+                }
+            }
+
+            #pragma omp atomic write
+            fme[index(m, e)] = fae_result;
+        }
+    }
+
+    // update wmnij 
+    #pragma omp for collapse(4)
+    for (int m = 0; m < num_electron; m++) {
+        for (int n = 0; n < num_electron; n++) {
+            for(int i = 0; i < num_electron; i++) {
+                for(int j = 0; j < num_electron; j++) {
+                    double wmnij_result = spin_ints[index(m, n, i, j)];
+
+                    for (int e = num_electron; e < dimension; e++) {
+                        wmnij_result += single_excitation[index(e, j)] * spin_ints[index(m, n, i, e)];
+                        wmnij_result -= single_excitation[index(e, i)] * spin_ints[index(m, n, i, e)];
+
+                        #pragma omp simd
+                        for (int f = num_electron; f < dimension; f++) {
+                            wmnij_result += 0.25 * tau(e, f, i, j) * spin_ints[index(m, n, e, f)];
                         }
                     }
 
                     #pragma omp atomic write
-                    fme[index(m, e)] = fae_result;
+                    wmnij[index(m, n, i, j)] = wmnij_result;
                 }
             }
         }
+    }
 
-        // update wmnij
-        #pragma omp section
-        {
-            for (int m = 0; m < num_electron; m++) {
-                for (int n = 0; n < num_electron; n++) {
-                    for(int i = 0; i < num_electron; i++) {
-                        for(int j = 0; j < num_electron; j++) {
-                            double wmnij_result = spin_ints[index(m, n, i, j)];
+    // update wabef
+    #pragma omp for collapse(4)
+    for (int a = num_electron; a < dimension; a++) {
+        for (int b = num_electron; b < dimension; b++) {
+            for (int e = num_electron; e < dimension; e++) {
+                for (int f = num_electron; f < dimension; f++) {
+                    double wabef_result = spin_ints[index(a, b, e, f)];
 
-                            for (int e = num_electron; e < dimension; e++) {
-                                wmnij_result += single_excitation[index(e, j)] * spin_ints[index(m, n, i, e)];
-                                wmnij_result -= single_excitation[index(e, i)] * spin_ints[index(m, n, i, e)];
+                    for (int m = 0; m < num_electron; m++) {
+                        wabef_result -= single_excitation[index(b, m)] * spin_ints[index(a, m, e, f)];
+                        wabef_result += single_excitation[index(a, m)] * spin_ints[index(b, m, e, f)];
 
-                                #pragma omp simd
-                                for (int f = num_electron; f < dimension; f++) {
-                                    wmnij_result += 0.25 * tau(e, f, i, j) * spin_ints[index(m, n, e, f)];
-                                }
-                            }
-
-                            #pragma omp atomic write
-                            wmnij[index(m, n, i, j)] = wmnij_result;
+                        for (int n = 0; n < num_electron; n++) {
+                            wabef_result -= 0.25 * tau(a, b, m, n) * spin_ints[index(m, n, e, f)];
                         }
                     }
+
+                    #pragma omp atomic write
+                    wabef[index(a, b, e, f)] = wabef_result;
                 }
             }
         }
+    }
 
-        // update wabef
-        #pragma omp section
-        {
-            for (int a = num_electron; a < dimension; a++) {
-                for (int b = num_electron; b < dimension; b++) {
-                    for (int e = num_electron; e < dimension; e++) {
-                        for (int f = num_electron; f < dimension; f++) {
-                            double wabef_result = spin_ints[index(a, b, e, f)];
+    // update wmbej
+    #pragma omp for collapse(4)
+    for (int m = 0; m < num_electron; m++) {
+        for (int b = num_electron; b < dimension; b++) {
+            for (int e = num_electron; e < dimension; e++) {
+                for (int j = 0; j < num_electron; j++) {
+                    double wmbej_result = spin_ints[index(m, b, e, j)];
 
-                            for (int m = 0; m < num_electron; m++) {
-                                wabef_result -= single_excitation[index(b, m)] * spin_ints[index(a, m, e, f)];
-                                wabef_result += single_excitation[index(a, m)] * spin_ints[index(b, m, e, f)];
+                    for (int f = num_electron; f < dimension; f++) {
+                        wmbej_result += single_excitation[index(f, j)] * spin_ints[index(m, b, e, f)];
 
-                                for (int n = 0; n < num_electron; n++) {
-                                    wabef_result -= 0.25 * tau(a, b, m, n) * spin_ints[index(m, n, e, f)];
-                                }
-                            }
-
-                            #pragma omp atomic write
-                            wabef[index(a, b, e, f)] = wabef_result;
+                        for (int n = 0; n < num_electron; n++) {
+                            wmbej_result -= (
+                                0.5 * double_excitation[index(f, b, j, n)] + \
+                                single_excitation[index(f, j)] * single_excitation[index(b, n)]
+                            ) * spin_ints[index(m, n, e, f)];
                         }
                     }
-                }
-            }
 
-        }
-
-        // update wmbej
-        #pragma omp section
-        {
-            for (int m = 0; m < num_electron; m++) {
-                for (int b = num_electron; b < dimension; b++) {
-                    for (int e = num_electron; e < dimension; e++) {
-                        for (int j = 0; j < num_electron; j++) {
-                            double wmbej_result = spin_ints[index(m, b, e, j)];
-
-                            for (int f = num_electron; f < dimension; f++) {
-                                wmbej_result += single_excitation[index(f, j)] * spin_ints[index(m, b, e, f)];
-
-                                for (int n = 0; n < num_electron; n++) {
-                                    wmbej_result -= (
-                                        0.5 * double_excitation[index(f, b, j, n)] + \
-                                        single_excitation[index(f, j)] * single_excitation[index(b, n)]
-                                    ) * spin_ints[index(m, n, e, f)];
-                                }
-                            }
-
-                            for (int n = 0; n < num_electron; n++) {
-                                wmbej_result -= single_excitation[index(b, n)] * spin_ints[index(m, n, e, j)];
-                            }
-
-                            wmbej[index(m, b, e, j)] = wmbej_result;
-                        }
+                    for (int n = 0; n < num_electron; n++) {
+                        wmbej_result -= single_excitation[index(b, n)] * spin_ints[index(m, n, e, j)];
                     }
+
+                    wmbej[index(m, b, e, j)] = wmbej_result;
                 }
             }
         }
@@ -513,7 +498,7 @@ void CCSD::makeT2
     const double *wabef, const double *wmnij, const double *wmbej
 ) {
     // make T2
-    #pragma omp parallel for collapse(4)
+    #pragma omp for collapse(4)
     for (int a = num_electron; a < dimension; a++) {
         for (int b = num_electron; b < dimension; b++) {
             for (int i = 0; i < num_electron; i++) {
