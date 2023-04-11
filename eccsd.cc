@@ -487,7 +487,7 @@ void CCSD::makeT2
                         for (int e = num_electron; e < dimension; e++) {
                             double val1 = n_td_abim * single_excitation[index(e, j)] * f[index(m, e)];
                             double val2 = td_abjm * single_excitation[index(e, i)] * f[index(m, e)];
-                            result += 0.5 * (val1 - val2);
+                            result += 0.5 * (val1 + val2);
                         }
                     }
                     

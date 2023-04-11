@@ -27,6 +27,6 @@ int main(int argc, char *argv[]) {
     double result = ccsd.run();
     double result2 = result + e_n + e_nuc;
 
-    printf(" E(corr, CCSD): %f \t E(CCSD): %f\n", result, result2);
+    printf(" E(corr, CCSD): %.15f \t E(CCSD): %.15f\n", result, result2);
     return 0;
 }
