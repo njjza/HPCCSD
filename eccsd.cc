@@ -123,25 +123,31 @@ double CCSD::run() {
                 }
             }
 
-            // ECCSD = update_energy();            
-            // #pragma omp for reduction(+:ECCSD)
-            // for (int i = 0; i < num_electron; i++) {
-            //     for (int a = num_electron; a < dimension; a++) {
-            //         for (int j = 0; j < num_electron; j++) {
-            //             for (int b = num_electron; b < dimension; b++) {
-            //                 double spin_ints_ijab = spin_ints[index(i, j, a, b)];
+            #pragma omp single
+            {
+                ECCSD = 0.0;
+                #pragma omp flush(ECCSD)
+            }
 
-            //                 ECCSD += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
-            //                 ECCSD += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
-            //             }
-            //         }
-            //     }
-            // }
+            // ECCSD = update_energy();            
+            #pragma omp for reduction(+:ECCSD)
+            for (int i = 0; i < num_electron; i++) {
+                for (int a = num_electron; a < dimension; a++) {
+                    for (int j = 0; j < num_electron; j++) {
+                        for (int b = num_electron; b < dimension; b++) {
+                            double spin_ints_ijab = spin_ints[index(i, j, a, b)];
+
+                            ECCSD += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
+                            ECCSD += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
+                        }
+                    }
+                }
+            }
 
             // update the energy difference
             #pragma omp single
             {
-                ECCSD = update_energy();   
+                // ECCSD = update_energy();   
                 DECC = std::abs(ECCSD - OLDCC);
                 #pragma omp flush(DECC)
                 OLDCC = ECCSD;
