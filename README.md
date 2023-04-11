@@ -1,4 +1,4 @@
-To compile the program, using the code make omp for paralleled version.
+To compile the program, use the command 'make omp' for paralleled version, 'make' for serial version.
 
 ### small dimensions
 Single Process - Single Thread Performance: 0.00117072; baseline
