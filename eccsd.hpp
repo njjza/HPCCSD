@@ -40,18 +40,25 @@ private:
     double *tdnew;
 
     // private methods
-    void update_intermediate(
-        double *fae, double *fmi, double *fme, double *wmnij, 
-        double *wabef, double *wmbej
-    );
+    // void update_intermediate(
+    //     double *fae, double *fmi, double *fme, double *wmnij, 
+    //     double *wabef, double *wmbej
+    // );
 
     void update_intermediate(
-        double *fae, double *fmi, double *fme, double *wmnij, 
-        double *wabef, double *wmbej, int x
+        double *f, double *wmnij, double *wabef, double *wmbej
     );
+
+    // void update_intermediate(
+    //     double *fae, double *fmi, double *fme, double *wmnij, 
+    //     double *wabef, double *wmbej, int x
+    // );
     
-    void makeT1(double *tsnew, const double *fme, const double *fmi, const double *fae);
-    void makeT2(double *tdnew, const double *fae, const double *fmi, const double *fme, 
+    // void makeT1(double *tsnew, const double *fme, const double *fmi, const double *fae);
+    // void makeT2(double *tdnew, const double *fae, const double *fmi, const double *fme, 
+    //             const double *wabef, const double *wmnij, const double *wmbej);
+    void makeT1(double *tsnew, const double *f);
+    void makeT2(double *tdnew, const double *f, 
                 const double *wabef, const double *wmnij, const double *wmbej);
     double update_energy();
     
