@@ -176,9 +176,9 @@ double CCSD::update_energy() {
         }
     }
 
-    return energy;
-        
+    return energy;    
 }
+
 inline double CCSD::taus(int a, int b, int i, int j) {
     return double_excitation[index(a, b, i, j)] + \
         0.5*(

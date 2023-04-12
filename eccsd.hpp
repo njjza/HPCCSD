@@ -15,16 +15,12 @@ private:
     int dimension;                              // dimension of the matrix
     int nuclear_repulsion_energy;               // nuclear repulsion energy
     int scf_energy;                             // scf energy
+    // TODO: rewriting these to the sparse matrix
     double *single_excitation;                  // T1   2d matrixes
     double *double_excitation;                  // T2   4d matrixes
     double *denominator_ai;                     // denominator of T1
-    
-    // TODO: rewriting this to the sparse matrix
     double *denominator_abij;                   // denominator of T2
-
     double *spin_ints;                          // spin basis double bar integral
-    
-    // TODO: making sparse matrix an option for fock matrix
     double *fs;                                 // fock matrix
 
     //intermediate 2d matrixes 

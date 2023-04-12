@@ -3,7 +3,9 @@
 #include <map>
 class SparseMatrix {
 public:
-    SparseMatrix() = default;
+    SparseMatrix(){
+        this->m_map = std::map<int, double>();
+    };
     class Proxy {
         public:
             Proxy(SparseMatrix& parent, int key) : m_parent(parent), m_key(key) {}
