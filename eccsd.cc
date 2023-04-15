@@ -129,16 +129,21 @@ double CCSD::run() {
                 #pragma omp flush(ECCSD)
             }
 
-            // ECCSD = update_energy();            
+            // ECCSD = update_energy();
+            #ifdef OMP         
             #pragma omp for reduction(+:ECCSD)
+            #endif
             for (int i = 0; i < num_electron; i++) {
                 for (int a = num_electron; a < dimension; a++) {
                     for (int j = 0; j < num_electron; j++) {
                         for (int b = num_electron; b < dimension; b++) {
                             double spin_ints_ijab = spin_ints[index(i, j, a, b)];
 
-                            ECCSD += 0.25 * spin_ints_ijab * double_excitation[index(a, b, i, j)];
-                            ECCSD += 0.5 * spin_ints_ijab * single_excitation[index(a, i)] * single_excitation[index(b, j)];
+                            ECCSD += 0.25 * spin_ints_ijab * \
+                                     double_excitation[index(a, b, i, j)];
+                            ECCSD += 0.5 * spin_ints_ijab * \
+                                     single_excitation[index(a, i)] * \
+                                     single_excitation[index(b, j)];
                         }
                     }
                 }
@@ -347,7 +352,6 @@ void CCSD::update_intermediate() {
 }
 
 void CCSD::makeT1(const double *single_intermediate) {
-    
     #pragma omp for nowait
     for (int a = num_electron; a < dimension; a++) {
         for (int i = 0; i< num_electron; i++) {

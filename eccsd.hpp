@@ -24,7 +24,7 @@ private:
     double *fs;                                 // fock matrix
 
     //intermediate 2d matrixes 
-    double *single_intermediate;                                  // single intermediate matrix
+    double *single_intermediate;                // single intermediate matrix
     double *tsnew;
 
     //intermediate 4d matrixes
